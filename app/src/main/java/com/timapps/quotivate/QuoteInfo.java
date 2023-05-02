@@ -11,18 +11,18 @@ public class QuoteInfo implements Parcelable {
 
     private String Quote;
     private String Author;
+    private String imageUrl;
 
-
-
-
-    public QuoteInfo(String quote, String author) {
+    public QuoteInfo(String quote, String author, String imageUrl) {
         Quote = quote;
         Author = author;
+        this.imageUrl = imageUrl;
     }
 
     protected QuoteInfo(Parcel in) {
         Quote = in.readString();
         Author = in.readString();
+        imageUrl = in.readString();
     }
 
     public static final Creator<QuoteInfo> CREATOR = new Creator<QuoteInfo>() {
@@ -36,6 +36,11 @@ public class QuoteInfo implements Parcelable {
             return new QuoteInfo[size];
         }
     };
+
+    public QuoteInfo(String quote, String author) {
+        Quote = quote;
+        Author = author;
+    }
 
     public String getQuote() {
         return Quote;
@@ -53,6 +58,13 @@ public class QuoteInfo implements Parcelable {
         Author = author;
     }
 
+    public String getImageUrl() {
+        return imageUrl;
+    }
+
+    public void setImageUrl(String imageUrl) {
+        this.imageUrl = imageUrl;
+    }
 
     @Override
     public int describeContents() {
@@ -63,11 +75,6 @@ public class QuoteInfo implements Parcelable {
     public void writeToParcel(Parcel parcel, int i) {
         parcel.writeString(Quote);
         parcel.writeString(Author);
+        parcel.writeString(imageUrl);
     }
 }
-
-
-
-
-
-

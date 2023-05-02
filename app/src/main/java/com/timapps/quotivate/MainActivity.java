@@ -41,6 +41,8 @@ public class MainActivity extends AppCompatActivity {
     private Button getQuoteButton;
     private TextView textView;
     String url = "https://api.quotable.io/random";
+    private String quoteUrl = "https://api.quotable.io/random";
+    private String imageUrl = "https://en.wikipedia.org/w/api.php?action=query&format=json&prop=pageimages&piprop=thumbnail&pithumbsize=250&titles=";
     Request request = new Request.Builder()
             .url(url)
             .build();
@@ -100,37 +102,75 @@ public class MainActivity extends AppCompatActivity {
 
     OkHttpClient client = new OkHttpClient();
 
-    private class HttpGetTask extends AsyncTask<Void, Void, String> {
+    private class HttpGetTask extends AsyncTask<Void, Void, QuoteInfo> {
         @Override
-        protected String doInBackground(Void... voids) {
+        protected QuoteInfo doInBackground(Void... voids) {
             try {
-                Response response = client.newCall(request).execute();
-                String responseData = response.body().string();
-                return responseData;
-            } catch (IOException e) {
+                // Get quote data
+                Request quoteRequest = new Request.Builder()
+                        .url(quoteUrl)
+                        .build();
+                Response quoteResponse = client.newCall(quoteRequest).execute();
+                String quoteResponseData = quoteResponse.body().string();
+
+                // Parse the JSON data to extract the quote and author
+                JSONObject onlineQuote = new JSONObject(quoteResponseData);
+                String quote = onlineQuote.getString("content");
+                String author = onlineQuote.getString("author");
+
+                // Get image data
+                String pageTitle = author.replace(" ", "_");
+                Request imageQueryRequest = new Request.Builder()
+                        .url(imageUrl + pageTitle)
+                        .build();
+                Response imageQueryResponse = client.newCall(imageQueryRequest).execute();
+                String imageQueryResponseData = imageQueryResponse.body().string();
+                JSONObject imageQueryResponseJson = new JSONObject(imageQueryResponseData);
+                JSONObject pagesObject = imageQueryResponseJson.getJSONObject("query").getJSONObject("pages");
+                String firstPageId = pagesObject.keys().next();
+                JSONObject pageObject = pagesObject.getJSONObject(firstPageId);
+                String imageUrl = pageObject.getJSONObject("thumbnail").getString("source");
+
+
+                // Create and return a new QuoteInfo object with the retrieved data
+                QuoteInfo NewGeneratedquote = new QuoteInfo("quote","author","imageUrl");
+                NewGeneratedquote.setQuote(quote);
+                NewGeneratedquote.setAuthor(author);
+                NewGeneratedquote.setImageUrl(imageUrl);
+
+                return NewGeneratedquote;
+            } catch (IOException | JSONException e) {
                 e.printStackTrace();
                 return null;
             }
         }
 
         @Override
-        protected void onPostExecute(String responseData) {
+        protected void onPostExecute(QuoteInfo responseData) {
+
+            if (responseData != null) {
+                String quote = responseData.getQuote();
+                String author = responseData.getAuthor();
+                String imageUrl = responseData.getImageUrl();
+                System.out.println(imageUrl);
+                NewGeneratedquote = responseData; // assign currentonlineQuote to NewGeneratedquote
+
+                Intent intent = new Intent(MainActivity.this, QuoteGenratedPage.class);
+                intent.putExtra("NewQuote", NewGeneratedquote);
+                startActivity(intent);
+
+            } else {
+                // Handle the error case
+                Log.d("HttpGetTask", "Error with getting data");
+            }
+
+
             if (responseData != null) {
                 // Do something with the response data
                 System.out.println(responseData);
-                String jSonData = responseData;
+
                 //Log.v(TAG, jSonData);
-                try {
-                    QuoteInfo currentonlineQuote = getLatestQuote(responseData);
-                    NewGeneratedquote = currentonlineQuote; // assign currentonlineQuote to NewGeneratedquote
 
-                    Intent intent = new Intent(MainActivity.this, QuoteGenratedPage.class);
-                    intent.putExtra("NewQuote", NewGeneratedquote);
-                    startActivity(intent);
-
-                } catch (JSONException e) {
-                    e.printStackTrace();
-                }
 
             } else {
                 // Handle the error case
@@ -141,26 +181,12 @@ public class MainActivity extends AppCompatActivity {
 
 
 
-    private QuoteInfo getLatestQuote(String jSonData) throws JSONException {
 
-        JSONObject onlineQuote = new JSONObject(jSonData);
-        String Quote = onlineQuote.getString("content");
-        String Author = onlineQuote.getString("author");
-        Log.i(TAG, "From JSON: " + Quote);
-        Log.i(TAG, "From JSON: " + Author);
-
-
-        QuoteInfo currentonlineQuote = new QuoteInfo(
-                Quote,
-                Author);
-
-
-        return currentonlineQuote;
-    }
 
 
 
 }
+
 
 
 

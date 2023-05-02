@@ -4,13 +4,16 @@ import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.Intent;
+import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.util.DisplayMetrics;
 import android.util.Log;
+
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
@@ -18,10 +21,13 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.squareup.picasso.Picasso;
+
 import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.IOException;
+
 
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -33,6 +39,9 @@ public class QuoteGenratedPage extends AppCompatActivity {
     private Button GenQuote;
     private Button SaveQuote;
     private LinearLayout buttonLayout;
+    private ImageView AuthorImage;
+
+
 
     /**
      * Find the Views in the layout
@@ -42,6 +51,7 @@ public class QuoteGenratedPage extends AppCompatActivity {
         AuthorLable = findViewById(R.id.AuthorLable);
         GenQuote = findViewById(R.id.GenQuote);
         SaveQuote = findViewById(R.id.SaveQuote);
+        AuthorImage = findViewById(R.id.AuthorImage);
     }
 
     @Override
@@ -62,6 +72,7 @@ public class QuoteGenratedPage extends AppCompatActivity {
                 // Update the UI with the new quote and author
                 QuoteLable.setText(quote);
                 AuthorLable.setText(author);
+                Picasso.get().load(currentOnlineQuote.getImageUrl()).into(AuthorImage);
             }
         }
 
@@ -109,51 +120,81 @@ public class QuoteGenratedPage extends AppCompatActivity {
         /**
          * AsyncTask to perform the API call on a separate thread
          */
-        private class HttpGetTask extends AsyncTask<Void, Void, String> {
+        private class HttpGetTask extends AsyncTask<Void, Void, QuoteInfo> {
 
             OkHttpClient client = new OkHttpClient();
-            String url = "https://api.quotable.io/random";
-            Request request = new Request.Builder()
-                    .url(url)
-                    .build();
+            String quoteUrl = "https://api.quotable.io/random";
+            String imageUrl = "https://en.wikipedia.org/w/api.php?action=query&format=json&prop=pageimages&piprop=thumbnail&pithumbsize=250&titles=";
 
             @Override
-            protected String doInBackground(Void... voids) {
+            protected QuoteInfo doInBackground(Void... voids) {
                 try {
-                    Response response = client.newCall(request).execute();
-                    String responseData = response.body().string();
-                    return responseData;
-                } catch (IOException e) {
+                    // Get quote data
+                    Request quoteRequest = new Request.Builder()
+                            .url(quoteUrl)
+                            .build();
+                    Response quoteResponse = client.newCall(quoteRequest).execute();
+                    String quoteResponseData = quoteResponse.body().string();
+
+                    // Parse the JSON data to extract the quote and author
+                    JSONObject onlineQuote = new JSONObject(quoteResponseData);
+                    String quote = onlineQuote.getString("content");
+                    String author = onlineQuote.getString("author");
+
+                    // Get image data
+                    String pageTitle = author.replace(" ", "_");
+                    Request imageQueryRequest = new Request.Builder()
+                            .url(imageUrl + pageTitle)
+                            .build();
+                    Response imageQueryResponse = client.newCall(imageQueryRequest).execute();
+                    String imageQueryResponseData = imageQueryResponse.body().string();
+                    JSONObject imageQueryResponseJson = new JSONObject(imageQueryResponseData);
+                    JSONObject pagesObject = imageQueryResponseJson.getJSONObject("query").getJSONObject("pages");
+                    String firstPageId = pagesObject.keys().next();
+                    JSONObject pageObject = pagesObject.getJSONObject(firstPageId);
+                    String imageUrl = pageObject.getJSONObject("thumbnail").getString("source");
+
+                    // Create and return a new QuoteInfo object with the retrieved data
+                    QuoteInfo quoteInfo = new QuoteInfo("quote","author","imageUrl");
+                    quoteInfo.setQuote(quote);
+                    quoteInfo.setAuthor(author);
+                    quoteInfo.setImageUrl(imageUrl);
+                    return quoteInfo;
+                } catch (IOException | JSONException e) {
                     e.printStackTrace();
                     return null;
                 }
             }
 
             @Override
-            protected void onPostExecute(String responseData) {
+            protected void onPostExecute(QuoteInfo responseData) {
                 if (responseData != null) {
-                    // Do something with the response data
-                    Log.d("HttpGetTask", responseData);
-                    String jSonData = responseData;
-                    try {
-                        // Parse the JSON data to extract the quote and author
-                        JSONObject onlineQuote = new JSONObject(jSonData);
-                        String quote = onlineQuote.getString("content");
-                        String author = onlineQuote.getString("author");
+                    String quote = responseData.getQuote();
+                    String author = responseData.getAuthor();
+                    String imageUrl = responseData.getImageUrl();
 
-                        // Update the UI with the new quote and author
-                        QuoteLable.setText(quote);
-                        AuthorLable.setText(author);
-                    } catch (JSONException e) {
-                        e.printStackTrace();
-                    }
+                    // Update the UI with the new quote and image
+                    QuoteLable.setText(quote);
+                    AuthorLable.setText(author);
+                    Picasso.get().load(imageUrl).into(AuthorImage);
                 } else {
                     // Handle the error case
                     Log.d("HttpGetTask", "Error with getting data");
                 }
             }
         }
-    }
+
+
+
+
+
+
+
+
+
+
+
+}
 
 
 
